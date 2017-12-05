@@ -193,7 +193,7 @@ spec:
       initContainers:
       # This init container extracts/copies VPP LD_PRELOAD libs and default VPP config to the host.
       - name: vpp-init
-        image: contivvpp/vswitch
+        image: dev-contiv-vswitch:0.0.1-621-g27e3f82
         imagePullPolicy: IfNotPresent
         command:
         - /bin/sh
@@ -201,7 +201,7 @@ spec:
         - -c
         - "rm -rf /dev/shm/db /dev/shm/global_vm /dev/shm/vpe-api || true && \
            rm -rf /vpp-lib64/* || true && \
-           cp -r $LD_PRELOAD_LIB_DIR/* /vpp-lib64/ && \
+           cp -r /opt/vpp-agent/dev/vpp/build-root/install-vpp_debug-native/vpp/lib64/* /vpp-lib64/ && \
            if [ ! -e /host/etc/vpp/contiv-vswitch.conf ]; then cp /etc/vpp/contiv-vswitch.conf /host/etc/vpp; fi"
         imagePullPolicy: IfNotPresent
         resources: {}
@@ -219,10 +219,12 @@ spec:
         # Runs contiv-vswitch container on each Kubernetes node.
         # It contains the vSwitch VPP and its management agent.
         - name: contiv-vswitch
-          image: contivvpp/vswitch
+          image: dev-contiv-vswitch:0.0.1-621-g27e3f82
           imagePullPolicy: IfNotPresent
           securityContext:
             privileged: true
+            capabilities:
+              add: ["SYS_PTRACE"]
           ports:
             # VPP debug CLI
             - containerPort: 5002
