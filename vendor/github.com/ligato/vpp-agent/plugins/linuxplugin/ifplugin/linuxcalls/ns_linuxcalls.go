@@ -17,8 +17,9 @@
 package linuxcalls
 
 import (
-	intf "github.com/ligato/vpp-agent/plugins/linuxplugin/ifplugin/model/interfaces"
 	"strconv"
+
+	intf "github.com/ligato/vpp-agent/plugins/linuxplugin/ifplugin/model/interfaces"
 
 	"fmt"
 	"net"
@@ -131,6 +132,7 @@ func SetInterfaceNamespace(ctx *NamespaceMgmtCtx, ifName string, namespace *intf
 
 	// re-add IP addresses
 	for i := range addrs {
+		log.WithFields(logging.Fields{"ifName": ifName, "addr": addrs[i].String()}).Info("Re-assigning IP address to Linux interface")
 		ip, network, err := net.ParseCIDR(addrs[i].String())
 		network.IP = ip /* combine IP address with netmask */
 		if err != nil {

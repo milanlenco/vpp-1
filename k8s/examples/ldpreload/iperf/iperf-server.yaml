@@ -8,7 +8,7 @@ spec:
     metadata:
       labels:
         # ldpreload-related labels
-        ldpreload: "true"
+        ldpreload: "false"
     spec:
       # optional - deploy on preferred node
 #      nodeSelector:
