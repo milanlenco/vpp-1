@@ -263,6 +263,51 @@ func (sp *ServiceProcessor) configureService(svc *Service, oldContivSvc *configu
 		return errors.New("failed to get Node IP")
 	}
 
+	// Configure local Backends.
+	newBackendIfs := sp.backendIfs.Copy()
+	updateBackends := false
+	// -> handle new backend interfaces
+	for _, newBackend := range newBackends {
+		new := true
+		for _, oldBackend := range oldBackends {
+			if newBackend == oldBackend {
+				new = false
+				break
+			}
+		}
+		if new {
+			localEp := sp.getLocalEndpoint(newBackend)
+			localEp.svcCount++
+			if localEp.ifName != "" && localEp.svcCount == 1 {
+				newBackendIfs.Add(localEp.ifName)
+				updateBackends = true
+			}
+		}
+	}
+	// -> handle removed backend interfaces
+	for _, oldBackend := range oldBackends {
+		removed := true
+		for _, newBackend := range newBackends {
+			if newBackend == oldBackend {
+				removed = false
+				break
+			}
+		}
+		if removed {
+			localEp := sp.getLocalEndpoint(oldBackend)
+			localEp.svcCount--
+			if localEp.ifName != "" && localEp.svcCount == 0 {
+				newBackendIfs.Del(localEp.ifName)
+				updateBackends = true
+			}
+		}
+	}
+	// -> update local backends
+	if updateBackends {
+		err = sp.Configurator.UpdateLocalBackendIfs(sp.backendIfs, newBackendIfs)
+		sp.backendIfs = newBackendIfs
+	}
+
 	// Configure new frontend addresses.
 	// -> handle enabled NodePort
 	if newHasNodePort && !oldHasNodePort {
@@ -353,51 +398,6 @@ func (sp *ServiceProcessor) configureService(svc *Service, oldContivSvc *configu
 				}
 			}
 		}
-	}
-
-	// Configure local Backends.
-	newBackendIfs := sp.backendIfs.Copy()
-	updateBackends := false
-	// -> handle new backend interfaces
-	for _, newBackend := range newBackends {
-		new := true
-		for _, oldBackend := range oldBackends {
-			if newBackend == oldBackend {
-				new = false
-				break
-			}
-		}
-		if new {
-			localEp := sp.getLocalEndpoint(newBackend)
-			localEp.svcCount++
-			if localEp.ifName != "" && localEp.svcCount == 1 {
-				newBackendIfs.Add(localEp.ifName)
-				updateBackends = true
-			}
-		}
-	}
-	// -> handle removed backend interfaces
-	for _, oldBackend := range oldBackends {
-		removed := true
-		for _, newBackend := range newBackends {
-			if newBackend == oldBackend {
-				removed = false
-				break
-			}
-		}
-		if removed {
-			localEp := sp.getLocalEndpoint(oldBackend)
-			localEp.svcCount--
-			if localEp.ifName != "" && localEp.svcCount == 0 {
-				newBackendIfs.Del(localEp.ifName)
-				updateBackends = true
-			}
-		}
-	}
-	// -> update local backends
-	if updateBackends {
-		err = sp.Configurator.UpdateLocalBackendIfs(sp.backendIfs, newBackendIfs)
-		sp.backendIfs = newBackendIfs
 	}
 
 	return err

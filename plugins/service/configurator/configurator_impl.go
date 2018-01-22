@@ -279,6 +279,20 @@ func (sc *ServiceConfigurator) Resync(resyncEv *ResyncEventData) error {
 		}
 	}
 
+	// Update local backend interfaces.
+	err = sc.UpdateLocalBackendIfs(backendIfsDump, resyncEv.BackendIfs)
+	if err != nil {
+		sc.Log.Error(err)
+		return err
+	}
+
+	// Update local frontend interfaces.
+	err = sc.UpdateLocalFrontendIfs(frontendIfsDump, resyncEv.FrontendIfs)
+	if err != nil {
+		sc.Log.Error(err)
+		return err
+	}
+
 	// Configure new DNAT external addresses.
 	for _, newAddr := range resyncEv.FrontendAddrs.List() {
 		new := true
@@ -327,20 +341,6 @@ func (sc *ServiceConfigurator) Resync(resyncEv *ResyncEventData) error {
 				return err
 			}
 		}
-	}
-
-	// Update local backend interfaces.
-	err = sc.UpdateLocalBackendIfs(backendIfsDump, resyncEv.BackendIfs)
-	if err != nil {
-		sc.Log.Error(err)
-		return err
-	}
-
-	// Update local frontend interfaces.
-	err = sc.UpdateLocalFrontendIfs(frontendIfsDump, resyncEv.FrontendIfs)
-	if err != nil {
-		sc.Log.Error(err)
-		return err
 	}
 
 	return nil
