@@ -104,40 +104,16 @@ func (pc *PolicyCache) LookupPodsByNSLabelSelector(policyNamespace string,
 	matchLabels := podLabelSelector.MatchLabel
 	matchExpressions := podLabelSelector.MatchExpression
 
-	if len(matchLabels) > 0 && len(matchExpressions) == 0 {
-		found, pods := pc.getPodsByNSLabelSelector(policyNamespace, matchLabels)
-		if !found {
-			return []podmodel.ID{}
-		}
-		return utils.UnstringPodID(pods)
+	mlPods := pc.getPodsByNSLabelSelector(policyNamespace, matchLabels)
+	mePods := pc.getMatchExpressionPods(policyNamespace, matchExpressions)
 
-	} else if len(matchLabels) == 0 && len(matchExpressions) > 0 {
-		found, pods := pc.getMatchExpressionPods(policyNamespace, matchExpressions)
-		if !found {
-			return []podmodel.ID{}
-		}
-		return utils.UnstringPodID(pods)
-
-	} else if len(matchLabels) > 0 && len(matchExpressions) > 0 {
-		foundMlPods, mlPods := pc.getPodsByNSLabelSelector(policyNamespace, matchLabels)
-		if !foundMlPods {
-			return []podmodel.ID{}
-		}
-
-		foundMePods, mePods := pc.getMatchExpressionPods(policyNamespace, matchExpressions)
-		if !foundMePods {
-			return []podmodel.ID{}
-		}
-
-		pods := utils.Intersect(mlPods, mePods)
-		if pods == nil {
-			return nil
-		}
-
-		return utils.UnstringPodID(pods)
+	if len(matchLabels) > 0 && len(matchExpressions) > 0 {
+		return utils.UnstringPodID(utils.Intersect(mlPods, mePods))
 	}
-
-	return nil
+	if len(matchLabels) > 0 {
+		return utils.UnstringPodID(mlPods)
+	}
+	return utils.UnstringPodID(mePods)
 }
 
 // LookupPodsByLabelSelector evaluates label selector (expression and/or match
@@ -154,13 +130,11 @@ func (pc *PolicyCache) LookupPodsByLabelSelector(
 			Infof("Empty namespace selector returning pods: %+v", pods)
 		return utils.UnstringPodID(pods)
 	}
-	pc.Log.WithField("LookupPodsByNSLabelSelector", namespaceLabelSelector).
-		Debugf("Namespace Label Selector is: %+v", namespaceLabelSelector)
 	// List of match labels and match expressions.
 	matchLabels := namespaceLabelSelector.MatchLabel
 
-	found, namespaceSelectorPods := pc.getPodsByLabelSelector(matchLabels)
-	if !found {
+	namespaceSelectorPods := pc.getPodsByLabelSelector(matchLabels)
+	if len(namespaceSelectorPods) == 0 {
 		return []podmodel.ID{}
 	}
 	return utils.UnstringPodID(namespaceSelectorPods)
@@ -271,8 +245,9 @@ func (pc *PolicyCache) LookupNamespace(namespace nsmodel.ID) (found bool, data *
 // LookupNamespacesByLabelSelector evaluates label selector (expression
 // and/or match labels) and returns IDs of matching namespaces.
 func (pc *PolicyCache) LookupNamespacesByLabelSelector(
-	nsLabelSelector string) []string {
-	return pc.configuredNamespaces.LookupNamespacesByLabelSelector(nsLabelSelector)
+	nsLabelSelector string) []nsmodel.ID {
+	namespaces := pc.configuredNamespaces.LookupNamespacesByLabelSelector(nsLabelSelector)
+	return utils.UnstringNamespaceID(namespaces)
 }
 
 // ListAllNamespaces returns IDs of all known namespaces.
