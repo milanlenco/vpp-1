@@ -239,7 +239,7 @@ func watchInternal(log logging.Logger, watcher clientv3.Watcher, closeCh chan st
 				}
 				err := wresp.Err()
 				if err != nil {
-					fmt.Printf("BUG: WATCH ERROR: %v\n", err)
+					fmt.Printf("BUG: WATCH ERROR: %v (key: %s)\n", err, key)
 				}
 				for _, ev := range wresp.Events {
 					handleWatchEvent(log, resp, ev)
