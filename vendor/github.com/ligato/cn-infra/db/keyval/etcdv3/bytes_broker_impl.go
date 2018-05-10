@@ -15,6 +15,7 @@
 package etcdv3
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/coreos/etcd/clientv3"
@@ -184,8 +185,10 @@ func handleWatchEvent(log logging.Logger, resp func(keyval.BytesWatchResp), ev *
 	}
 
 	if ev.Type == mvccpb.DELETE {
+		fmt.Printf("BUG: DELETE KEY: %s\n", string(ev.Kv.Key))
 		resp(NewBytesWatchDelResp(string(ev.Kv.Key), prevKvValue, ev.Kv.ModRevision))
 	} else if ev.IsCreate() || ev.IsModify() {
+		fmt.Printf("BUG: CREATE/MODIFY KEY: %s\n", string(ev.Kv.Key))
 		if ev.Kv.Value != nil {
 			resp(NewBytesWatchPutResp(string(ev.Kv.Key), ev.Kv.Value, prevKvValue, ev.Kv.ModRevision))
 		}
@@ -231,6 +234,13 @@ func watchInternal(log logging.Logger, watcher clientv3.Watcher, closeCh chan st
 		for {
 			select {
 			case wresp := <-recvChan:
+				if wresp.Canceled {
+					fmt.Printf("BUG: WATCH CANCELED: %s\n", key)
+				}
+				err := wresp.Err()
+				if err != nil {
+					fmt.Printf("BUG: WATCH ERROR: %v\n", err)
+				}
 				for _, ev := range wresp.Events {
 					handleWatchEvent(log, resp, ev)
 				}
