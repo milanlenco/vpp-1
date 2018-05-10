@@ -15,7 +15,6 @@
 package etcdv3
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/coreos/etcd/clientv3"
@@ -185,10 +184,10 @@ func handleWatchEvent(log logging.Logger, resp func(keyval.BytesWatchResp), ev *
 	}
 
 	if ev.Type == mvccpb.DELETE {
-		fmt.Printf("BUG: DELETE KEY: %s\n", string(ev.Kv.Key))
+		log.WithField("key", string(ev.Kv.Key)).Info("BUG: deleted key")
 		resp(NewBytesWatchDelResp(string(ev.Kv.Key), prevKvValue, ev.Kv.ModRevision))
 	} else if ev.IsCreate() || ev.IsModify() {
-		fmt.Printf("BUG: CREATE/MODIFY KEY: %s\n", string(ev.Kv.Key))
+		log.WithField("key", string(ev.Kv.Key)).Info("BUG: created/modified key")
 		if ev.Kv.Value != nil {
 			resp(NewBytesWatchPutResp(string(ev.Kv.Key), ev.Kv.Value, prevKvValue, ev.Kv.ModRevision))
 		}
@@ -228,6 +227,7 @@ func (db *BytesConnectionEtcd) Watch(resp func(keyval.BytesWatchResp), closeChan
 // watchInternal starts the watch subscription for the key.
 func watchInternal(log logging.Logger, watcher clientv3.Watcher, closeCh chan string, key string, resp func(keyval.BytesWatchResp)) error {
 	recvChan := watcher.Watch(context.Background(), key, clientv3.WithPrefix(), clientv3.WithPrevKV())
+	compacted := false
 
 	go func() {
 		registeredKey := key
@@ -235,18 +235,31 @@ func watchInternal(log logging.Logger, watcher clientv3.Watcher, closeCh chan st
 			select {
 			case wresp, ok := <-recvChan:
 				if !ok {
-					fmt.Printf("BUG: WATCH CLOSED: %s\n", key)
+					log.WithField("key", key).Warn("BUG: watch closed")
+					if compacted {
+						recvChan = watcher.Watch(context.Background(), key, clientv3.WithPrefix(), clientv3.WithPrevKV())
+						compacted = false
+						log.WithField("key", key).Warn("BUG: watch re-created")
+					} else {
+						// create mock channel to prevent from endless spinning
+						recvChan = make(clientv3.WatchChan)
+					}
 					continue
 				}
 				if wresp.Canceled {
-					fmt.Printf("BUG: WATCH CANCELED: %s\n", key)
+					log.WithField("key", key).Warn("BUG: watch canceled")
 				}
 				err := wresp.Err()
 				if err != nil {
-					fmt.Printf("BUG: WATCH ERROR: %v (key: %s)\n", err, key)
+					log.WithFields(logging.Fields{"key": key, "err": err}).Warn("BUG: watch returned error")
 				}
+				compacted = false
 				if wresp.CompactRevision != 0 {
-					fmt.Printf("BUG: WATCH COMPACT REVISION: %d (key: %s)\n", wresp.CompactRevision, key)
+					log.WithFields(logging.Fields{
+						"key": key,
+						"rev": wresp.CompactRevision,
+						}).Warn("BUG: watched data were compacted ")
+					compacted = true
 				}
 				for _, ev := range wresp.Events {
 					handleWatchEvent(log, resp, ev)
