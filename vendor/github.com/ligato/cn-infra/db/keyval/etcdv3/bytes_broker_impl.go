@@ -233,7 +233,11 @@ func watchInternal(log logging.Logger, watcher clientv3.Watcher, closeCh chan st
 		registeredKey := key
 		for {
 			select {
-			case wresp := <-recvChan:
+			case wresp, ok := <-recvChan:
+				if !ok {
+					fmt.Printf("BUG: WATCH CLOSED: %s\n", key)
+					continue
+				}
 				if wresp.Canceled {
 					fmt.Printf("BUG: WATCH CANCELED: %s\n", key)
 				}
