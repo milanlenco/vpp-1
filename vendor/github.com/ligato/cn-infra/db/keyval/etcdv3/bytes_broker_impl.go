@@ -227,19 +227,23 @@ func (db *BytesConnectionEtcd) Watch(resp func(keyval.BytesWatchResp), closeChan
 // watchInternal starts the watch subscription for the key.
 func watchInternal(log logging.Logger, watcher clientv3.Watcher, closeCh chan string, key string, resp func(keyval.BytesWatchResp)) error {
 	recvChan := watcher.Watch(context.Background(), key, clientv3.WithPrefix(), clientv3.WithPrevKV())
-	compacted := false
 
 	go func() {
+		var compactRev int64
 		registeredKey := key
 		for {
 			select {
 			case wresp, ok := <-recvChan:
 				if !ok {
 					log.WithField("key", key).Warn("BUG: watch closed")
-					if compacted {
-						recvChan = watcher.Watch(context.Background(), key, clientv3.WithPrefix(), clientv3.WithPrevKV())
-						compacted = false
-						log.WithField("key", key).Warn("BUG: watch re-created")
+					if compactRev != 0 {
+						recvChan = watcher.Watch(context.Background(), key,
+							clientv3.WithPrefix(), clientv3.WithPrevKV(), clientv3.WithRev(compactRev))
+						log.WithFields(logging.Fields{
+							"key": key,
+							"rev": compactRev,
+						}).Warn("BUG: watch re-created")
+						compactRev = 0
 					} else {
 						// create mock channel to prevent from endless spinning
 						recvChan = make(clientv3.WatchChan)
@@ -253,13 +257,12 @@ func watchInternal(log logging.Logger, watcher clientv3.Watcher, closeCh chan st
 				if err != nil {
 					log.WithFields(logging.Fields{"key": key, "err": err}).Warn("BUG: watch returned error")
 				}
-				compacted = false
-				if wresp.CompactRevision != 0 {
+				compactRev = wresp.CompactRevision
+				if compactRev != 0 {
 					log.WithFields(logging.Fields{
 						"key": key,
 						"rev": wresp.CompactRevision,
 						}).Warn("BUG: watched data were compacted ")
-					compacted = true
 				}
 				for _, ev := range wresp.Events {
 					handleWatchEvent(log, resp, ev)
