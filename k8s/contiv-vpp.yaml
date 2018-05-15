@@ -215,7 +215,7 @@ spec:
       initContainers:
       # This init container extracts/copies VPP LD_PRELOAD libs and default VPP config to the host.
       - name: vpp-init
-        image: contivvpp/vswitch:latest
+        image: contivvpp/vswitch:nat-test
         imagePullPolicy: IfNotPresent
         command:
         - /bin/sh
@@ -254,7 +254,7 @@ spec:
         # Runs contiv-vswitch container on each Kubernetes node.
         # It contains the vSwitch VPP and its management agent.
         - name: contiv-vswitch
-          image: contivvpp/vswitch:latest
+          image: contivvpp/vswitch:nat-test
           imagePullPolicy: IfNotPresent
           securityContext:
             privileged: true
