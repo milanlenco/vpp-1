@@ -190,7 +190,6 @@ func (s *remoteCNIserver) processChangeEvent(dataChngEv datasync.ChangeEvent) er
 func (s *remoteCNIserver) addRoutesToNode(nodeInfo *node.NodeInfo) error {
 
 	txn := s.vppTxnFactory().Put()
-	txn2 := s.vppTxnFactory().Put() // TODO: merge into 1 transaction after vpp-agent supports it
 	hostIP := s.otherHostIP(uint8(nodeInfo.Id), nodeInfo.IpAddress)
 
 	// VXLAN tunnel
@@ -222,7 +221,7 @@ func (s *remoteCNIserver) addRoutesToNode(nodeInfo *node.NodeInfo) error {
 
 		// static FIB
 		vxlanFib := s.vxlanFibEntry(vxlanArp.PhysAddress, vxlanIf.Name)
-		txn2.BDFIB(vxlanFib)
+		txn.BDFIB(vxlanFib)
 	}
 
 	// static routes
@@ -265,19 +264,14 @@ func (s *remoteCNIserver) addRoutesToNode(nodeInfo *node.NodeInfo) error {
 	if err != nil {
 		return fmt.Errorf("Can't configure VPP to add routes to node %v: %v ", nodeInfo.Id, err)
 	}
-	if !s.useL2Interconnect {
-		err = txn2.Send().ReceiveReply()
-		if err != nil {
-			return fmt.Errorf("Can't configure VPP to add FIB to node %v: %v ", nodeInfo.Id, err)
-		}
-	}
 	return nil
 }
 
 // deleteRoutesToNode delete routes to the node specified by nodeID.
 func (s *remoteCNIserver) deleteRoutesToNode(nodeInfo *node.NodeInfo) error {
-	txn := s.vppTxnFactory().Delete()
-	txn2 := s.vppTxnFactory().Delete() // TODO: merge into 1 transaction after vpp-agent supports it
+	txn := s.vppTxnFactory()
+	put := txn.Put()
+	delete := txn.Delete()
 	hostIP := s.otherHostIP(uint8(nodeInfo.Id), nodeInfo.IpAddress)
 
 	// VXLAN tunnel
@@ -286,7 +280,7 @@ func (s *remoteCNIserver) deleteRoutesToNode(nodeInfo *node.NodeInfo) error {
 		if err != nil {
 			return err
 		}
-		txn.VppInterface(vxlanIf.Name)
+		delete.VppInterface(vxlanIf.Name)
 		s.Logger.WithFields(logging.Fields{
 			"srcIP":  vxlanIf.Vxlan.SrcAddress,
 			"destIP": vxlanIf.Vxlan.DstAddress}).Info("Removing vxlan")
@@ -296,11 +290,7 @@ func (s *remoteCNIserver) deleteRoutesToNode(nodeInfo *node.NodeInfo) error {
 
 		// pass deep copy to local client since we are overwriting previously applied config
 		bd := proto.Clone(s.vxlanBD)
-		err = s.vppTxnFactory().Put().BD(bd.(*vpp_l2.BridgeDomains_BridgeDomain)).Send().ReceiveReply()
-		if err != nil {
-			s.Logger.Error(err)
-			return err
-		}
+		put.BD(bd.(*vpp_l2.BridgeDomains_BridgeDomain))
 
 		// static ARP entry
 		vxlanIP, err := s.ipam.VxlanIPAddress(uint8(nodeInfo.Id))
@@ -309,11 +299,11 @@ func (s *remoteCNIserver) deleteRoutesToNode(nodeInfo *node.NodeInfo) error {
 			return err
 		}
 		vxlanArp := s.vxlanArpEntry(uint8(nodeInfo.Id), vxlanIP.String())
-		txn.Arp(vxlanArp.Interface, vxlanArp.IpAddress)
+		delete.Arp(vxlanArp.Interface, vxlanArp.IpAddress)
 
 		// static FIB
 		vxlanFib := s.vxlanFibEntry(vxlanArp.PhysAddress, vxlanIf.Name)
-		txn2.BDFIB(vxlanFib.BridgeDomain, vxlanFib.PhysAddress)
+		delete.BDFIB(vxlanFib.BridgeDomain, vxlanFib.PhysAddress)
 	}
 
 	// static routes
@@ -340,14 +330,14 @@ func (s *remoteCNIserver) deleteRoutesToNode(nodeInfo *node.NodeInfo) error {
 	if err != nil {
 		return err
 	}
-	txn.StaticRoute(podsRoute.VrfId, podsRoute.DstIpAddr, podsRoute.NextHopAddr)
-	txn.StaticRoute(hostRoute.VrfId, hostRoute.DstIpAddr, hostRoute.NextHopAddr)
+	delete.StaticRoute(podsRoute.VrfId, podsRoute.DstIpAddr, podsRoute.NextHopAddr)
+	delete.StaticRoute(hostRoute.VrfId, hostRoute.DstIpAddr, hostRoute.NextHopAddr)
 	s.Logger.Info("Deleting PODs route: ", podsRoute)
 	s.Logger.Info("Deleting host route: ", hostRoute)
 
 	if s.stnIP == "" {
 		managementRoute := s.routeToOtherManagementIP(nodeInfo.ManagementIpAddress, nextHop)
-		txn.StaticRoute(managementRoute.VrfId, managementRoute.DstIpAddr, managementRoute.NextHopAddr)
+		delete.StaticRoute(managementRoute.VrfId, managementRoute.DstIpAddr, managementRoute.NextHopAddr)
 		s.Logger.Info("Deleting managementIP route: ", managementRoute)
 	}
 
@@ -355,12 +345,6 @@ func (s *remoteCNIserver) deleteRoutesToNode(nodeInfo *node.NodeInfo) error {
 	err = txn.Send().ReceiveReply()
 	if err != nil {
 		return fmt.Errorf("Can't configure VPP to remove routes to node %v: %v ", nodeInfo.Id, err)
-	}
-	if !s.useL2Interconnect {
-		err = txn2.Send().ReceiveReply()
-		if err != nil {
-			return fmt.Errorf("Can't configure VPP to remove FIB to node %v: %v ", nodeInfo.Id, err)
-		}
 	}
 	return nil
 }
