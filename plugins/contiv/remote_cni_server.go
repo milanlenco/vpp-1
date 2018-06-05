@@ -58,7 +58,9 @@ const (
 	vethHostEndName               = "vpp1"
 	vethVPPEndLogicalName         = "veth-vpp2"
 	vethVPPEndName                = "vpp2"
-	defaultSTNSocketFile          = "/var/run/contiv/stn.sock"
+
+	// defaultSTNSocketFile is the default socket file path where CNI GRPC server listens for incoming CNI requests.
+	defaultSTNSocketFile = "/var/run/contiv/stn.sock"
 
 	// TapHostEndLogicalName is the logical name of the VPP-host interconnect TAP interface (host end)
 	TapHostEndLogicalName = "tap-vpp1"
@@ -1163,7 +1165,7 @@ func (s *remoteCNIserver) configurePodInterface(request *cni.CNIRequest, podIP n
 // interface and its routes + ARPs.
 func (s *remoteCNIserver) unconfigurePodInterface(request *cni.CNIRequest, config *container.Persisted,
 	txn linux.DeleteDSL) error {
-
+/*
 	if !s.test {
 		// delete static routes
 		txn.LinuxRoute(config.PodLinkRouteName).
@@ -1176,6 +1178,7 @@ func (s *remoteCNIserver) unconfigurePodInterface(request *cni.CNIRequest, confi
 	if s.useTAPInterfaces {
 		txn.LinuxInterface(config.PodTapName)
 	}
+*/
 
 	// delete VPP to POD interconnect interface
 	txn.VppInterface(config.VppIfName)

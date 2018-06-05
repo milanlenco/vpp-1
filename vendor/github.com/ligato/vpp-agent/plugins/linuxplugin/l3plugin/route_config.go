@@ -771,6 +771,12 @@ func (plugin *LinuxRouteConfigurator) networkReachable(ns *l3.LinuxStaticRoutes_
 	}
 	if registeredRoute != nil || autoRoute != nil {
 		plugin.Log.Debugf("Network %s is reachable", ipAddress)
+        if registeredRoute != nil {
+            plugin.Log.Debugf("RegisteredRoute: %v", *registeredRoute)
+        }
+        if autoRoute != nil {
+            plugin.Log.Debugf("AutoRoute: %v", *autoRoute)
+        }
 		return true
 	}
 	return false
