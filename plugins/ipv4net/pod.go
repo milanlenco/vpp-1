@@ -54,7 +54,7 @@ const (
 /****************************** Pod Configuration ******************************/
 
 // podConnectivityConfig returns configuration for VPP<->Pod connectivity.
-func (n *IPv4Net) podConnectivityConfig(pod *podmanager.LocalPod) (config controller.KeyValuePairs) {
+func (n *IPv4Net) podConnectivityConfig(pod *podmanager.LocalPod) (config controller.KeyValuePairs, groupings []string) {
 	config = make(controller.KeyValuePairs)
 
 	// create VPP to POD interconnect interface
@@ -93,7 +93,11 @@ func (n *IPv4Net) podConnectivityConfig(pod *podmanager.LocalPod) (config contro
 	// route to PodIP via AF_PACKET / TAP
 	key, vppRoute := n.vppToPodRoute(pod)
 	config[key] = vppRoute
-	return config
+
+	// groupings to keep pod configuration logically clustered
+	groupings = []string{"Pods", pod.ID.String()}
+
+	return config, groupings
 }
 
 // podInterfaceName returns logical names of interfaces on both sides

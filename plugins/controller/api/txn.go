@@ -38,6 +38,10 @@ type ResyncOperations interface {
 	// Until the transaction is committed, provided values can still be changed.
 	// Returns nil if the value is set to be deleted, or has not been set at all.
 	Get(key string) proto.Message
+
+	// SetGroupings allows to set potentially nested groups to cluster related
+	// key-value pairs.
+	SetGroupings(key string, groupings []string)
 }
 
 // UpdateOperations lists operations needed to build transaction for Update-type events.
@@ -61,5 +65,13 @@ func PutAll(txn ResyncOperations, values KeyValuePairs) {
 func DeleteAll(txn UpdateOperations, values KeyValuePairs) {
 	for key := range values {
 		txn.Delete(key)
+	}
+}
+
+// SetGroupingsForAll allows to set the same set of nested groups for a set
+// of key-value pairs.
+func SetGroupingsForAll(txn ResyncOperations, values KeyValuePairs, groupings []string) {
+	for key := range values {
+		txn.SetGroupings(key, groupings)
 	}
 }

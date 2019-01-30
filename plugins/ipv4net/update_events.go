@@ -91,8 +91,9 @@ func (n *IPv4Net) addPod(event *podmanager.AddPod, txn controller.UpdateOperatio
 
 	// 3. prepare configuration for VPP <-> Pod connectivity
 
-	config := n.podConnectivityConfig(pod)
+	config, groupings := n.podConnectivityConfig(pod)
 	controller.PutAll(txn, config)
+	controller.SetGroupingsForAll(txn, config, groupings)
 
 	// 4. update interface->pod map
 
@@ -135,8 +136,9 @@ func (n *IPv4Net) deletePod(event *podmanager.DeletePod, txn controller.UpdateOp
 
 	// 1. prepare delete operations for transaction
 
-	config := n.podConnectivityConfig(pod)
+	config, groupings := n.podConnectivityConfig(pod)
 	controller.DeleteAll(txn, config)
+	controller.SetGroupingsForAll(txn, config, groupings)
 
 	// 2. update interface->pod map
 

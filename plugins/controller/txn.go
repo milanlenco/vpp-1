@@ -28,6 +28,8 @@ import (
 type kvSchedulerTxn struct {
 	kvScheduler scheduler_api.KVScheduler
 
+	groupings map[string][]string // key -> groupings
+
 	// values set via Put or Delete
 	values api.KeyValuePairs
 
@@ -39,6 +41,7 @@ type kvSchedulerTxn struct {
 func newTransaction(kvScheduler scheduler_api.KVScheduler) *kvSchedulerTxn {
 	return &kvSchedulerTxn{
 		kvScheduler: kvScheduler,
+		groupings:   make(map[string][]string),
 		values:      make(api.KeyValuePairs),
 		merged:      make(api.KeyValuePairs),
 	}
@@ -50,14 +53,14 @@ func (txn *kvSchedulerTxn) Commit(ctx context.Context) (seqNum uint64, err error
 	for key, value := range txn.values {
 		if value != nil {
 			// put
-			schedTxn.SetValue(key, value)
+			schedTxn.SetValue(key, value, txn.getGroupings(key))
 		} else {
 			// delete
-			schedTxn.SetValue(key, nil)
+			schedTxn.SetValue(key, nil, txn.getGroupings(key))
 		}
 	}
 	for key, value := range txn.merged {
-		schedTxn.SetValue(key, value)
+		schedTxn.SetValue(key, value, txn.getGroupings(key))
 	}
 	return schedTxn.Commit(ctx)
 }
@@ -71,8 +74,15 @@ func (txn *kvSchedulerTxn) Put(key string, value proto.Message) {
 	txn.values[key] = value
 }
 
+// Delete adds request to the transaction to delete an existing value.
 func (txn *kvSchedulerTxn) Delete(key string) {
 	txn.values[key] = nil
+}
+
+// SetGroupings allows to set potentially nested groups to cluster related
+// key-value pairs.
+func (txn *kvSchedulerTxn) SetGroupings(key string, groupings []string) {
+	txn.groupings[key] = groupings
 }
 
 // Get is used to obtain value already prepared to be applied by this transaction.
@@ -80,4 +90,12 @@ func (txn *kvSchedulerTxn) Delete(key string) {
 func (txn *kvSchedulerTxn) Get(key string) proto.Message {
 	value, _ := txn.values[key]
 	return value
+}
+
+func (txn *kvSchedulerTxn) getGroupings(key string) []string {
+	groupings, hasAny := txn.groupings[key]
+	if hasAny {
+		return groupings
+	}
+	return nil
 }

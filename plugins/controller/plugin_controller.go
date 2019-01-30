@@ -711,6 +711,7 @@ func (c *Controller) processEvent(qe *QueuedEvent) error {
 	}
 
 	// 8. merge internal (Contiv-generated) values with external configuration
+	// TODO: preserve groupings
 	if !fatalErr && !abortErr {
 		if isUpdate {
 			merged := make(map[string]struct{}) // a set of keys with already merged values

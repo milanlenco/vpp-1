@@ -63,8 +63,9 @@ func (n *IPv4Net) Resync(event controller.Event, kubeStateData controller.KubeSt
 		if n.IPAM.GetPodIP(pod.ID) == nil {
 			continue
 		}
-		config := n.podConnectivityConfig(pod)
+		config, groupings := n.podConnectivityConfig(pod)
 		controller.PutAll(txn, config)
+		controller.SetGroupingsForAll(txn, config, groupings)
 	}
 
 	n.Log.Infof("IPv4Net plugin internal state after RESYNC: %s",
