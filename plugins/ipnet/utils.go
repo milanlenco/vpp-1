@@ -23,7 +23,6 @@ import (
 
 	"github.com/ligato/vpp-agent/api/models/vpp/interfaces"
 	nslinuxcalls "github.com/ligato/vpp-agent/plugins/linux/nsplugin/linuxcalls"
-	"github.com/ligato/vpp-agent/plugins/vpp/binapi/vpp1901/ip"
 	"github.com/ligato/vpp-agent/plugins/vpp/binapi/vpp1901/vpe"
 )
 
@@ -104,25 +103,6 @@ func (n *IPNet) executeDebugCLI(cmd string) (string, error) {
 		return "", err
 	}
 	return string(reply.Reply), err
-}
-
-// createVrf creates provided VRF using binary API
-func (n *IPNet) createVrf(vrfID uint32) error {
-	n.Log.Info("Creating VRF 1")
-
-	req := &ip.IPTableAddDel{
-		TableID: vrfID,
-		IsIPv6:  0,
-		IsAdd:   1,
-	}
-	reply := &ip.IPTableAddDelReply{}
-
-	err := n.govppCh.SendRequest(req).ReceiveReply(reply)
-
-	if err != nil {
-		n.Log.Error("Error by creating VRF 1:", err)
-	}
-	return err
 }
 
 // hwAddrForNodeInterface generates hardware address for interface based on node ID.

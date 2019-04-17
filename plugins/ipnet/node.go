@@ -334,6 +334,33 @@ func (n *IPNet) defaultRoute(gwIP net.IP, outIfName string) (key string, config 
 
 /************************************ VRFs ************************************/
 
+// vrfTablesForPods returns VRF tables for networking between pods.
+func (n *IPNet) vrfTablesForPods() map[string]*vpp_l3.VrfTable {
+	tables := make(map[string]*vpp_l3.VrfTable)
+	routingCfg := n.ContivConf.GetRoutingConfig()
+
+	// TODO: Is IPv4 VRF table needed also in IPv6 mode?
+	v4 := &vpp_l3.VrfTable{
+		Id:       routingCfg.PodVRFID,
+		Protocol: vpp_l3.VrfTable_IPV4,
+		Label:    "VRF-pods-ipv4",
+	}
+	v4Key := vpp_l3.VrfTableKey(v4.Id, v4.Protocol)
+	tables[v4Key] = v4
+
+	if n.ContivConf.GetIPAMConfig().UseIPv6 {
+		v6 := &vpp_l3.VrfTable{
+			Id:       routingCfg.PodVRFID,
+			Protocol: vpp_l3.VrfTable_IPV6,
+			Label:    "VRF-pods-ipv6",
+		}
+		v6Key := vpp_l3.VrfTableKey(v6.Id, v6.Protocol)
+		tables[v6Key] = v6
+	}
+
+	return tables
+}
+
 // routesPodToMainVRF returns non-drop routes from Pod VRF to Main VRF.
 func (n *IPNet) routesPodToMainVRF() map[string]*vpp_l3.Route {
 	routes := make(map[string]*vpp_l3.Route)
